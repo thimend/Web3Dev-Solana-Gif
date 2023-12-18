@@ -5,6 +5,7 @@ import idl from './idl.json';
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { Program, AnchorProvider, web3 } from '@project-serum/anchor';
 import kp from './keypair.json'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
 
 // Constants
@@ -65,6 +66,7 @@ const getProviderToInteract = useCallback (async () =>
 const [walletAddress, setWalletAddress] = useState(null);
 const [inputValue, setInputValue] = useState("");
 const [gifList, setGifList] = useState([]);
+const [liked, setLiked] = useState(false);
 
  const checkIfWalletIsConnected = useCallback( async() => {
   try {
@@ -72,7 +74,7 @@ const [gifList, setGifList] = useState([]);
       const provider = await getProviderToConnect(); // see "Detecting the Provider"
       try {
         if (!provider.isConnected){
-          const resp = await provider.connect({ onlyIfTrusted: true });
+          const resp = await provider.connect();
           console.log(resp.publicKey.toString());
         
           setWalletAddress(resp.publicKey.toString());  
@@ -97,7 +99,7 @@ const connecDisconnecttWallet = async () => {
         const provider = await getProviderToConnect(); // see "Detecting the Provider"
         try {
           if (!provider.isConnected){
-            const resp = await provider.connect({ onlyIfTrusted: true });
+            const resp = await provider.connect();
             console.log(resp.publicKey.toString());
           
             setWalletAddress(resp.publicKey.toString());  
@@ -145,6 +147,43 @@ const getLabelButtonConnect = () => {
   return LABEL_CONNECT;
 };
 
+const voteGif = (index) => async () => {
+  try {
+    const provider = await getProviderToInteract();
+    const program = new Program(idl, programID, provider);
+    const account = await program.account.baseAccount.fetch(baseAccount.publicKey);
+
+    console.log("Gif clicado", account.gifList[index])
+
+    await program.rpc.voteGif(index, {
+      accounts: {
+        baseAccount: baseAccount.publicKey,
+      },
+    });
+
+    console.log("Votação enviada para o GIF", index);
+    await getGifList();
+  } catch (error) {
+    console.log("Erro na votação:", error)
+  }
+};
+
+
+const LikeButton = ({ imageId }) => {
+  const [liked, setLiked] = useState(false);
+
+  const handleClick = () => {
+    setLiked(!liked);
+    // Você pode usar imageId aqui para realizar ações específicas, se necessário
+  };
+
+  return (
+    <button onClick={handleClick}>
+      {liked ? 'Liked 👍' : 'Like 👎'}
+    </button>
+  );
+};
+
 const renderConnectedContainer = () => {
   // Se chegarmos aqui, significa que a conta do programa não foi inicializada.
     if (gifList === null) {
@@ -179,8 +218,19 @@ const renderConnectedContainer = () => {
           <div className="gif-grid">
             {/* Usamos o indice (index) como chave (key), também o 'src' agora é 'item.gifLink' */}
             {gifList.map((item, index) => (
-              <div className="gif-item" key={index}>
+              <div className="gif-item" key={index}>                  
+              <p>
+                Added by: {item.userAddress.toString()}
+              </p>
                 <img src={item.gifLink} />
+                <LikeButton imageId={item.gifLink} />
+
+                <div className="like-div">
+                    <button onClick={voteGif(index)}>
+                      ❤️
+                    </button>
+                    {item.gifVotes.toString()} likes
+                  </div>                
               </div>
             ))}
           </div>
@@ -313,7 +363,7 @@ useEffect(() => {
             href={TWITTER_LINK}
             target="_blank"
             rel="noreferrer"
-          >{`feito com ❤️ por @${TWITTER_HANDLE}`}</a>
+          >{`Bootcamp de Solana criado por @${TWITTER_HANDLE}`}</a>
         </div>
       </div>
     </div>
